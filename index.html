@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <link rel="icon" href="data:,">
+    <title>CardLens｜智慧名片掃描</title>
+    <meta
+      name="description"
+      content="完全在瀏覽器中運作的名片拍攝、AI 辨識與本機名片庫。"
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#scanner" data-route-link="scanner" aria-label="CardLens 首頁">
+          <span class="brand-mark" aria-hidden="true">C</span>
+          <span>
+            <strong>CardLens</strong>
+            <small>名片變聯絡人，只要一瞬間</small>
+          </span>
+        </a>
+        <nav class="topnav" aria-label="主要導覽">
+          <button class="nav-item active" data-route="scanner" type="button">
+            <span aria-hidden="true">⌗</span> 掃描
+          </button>
+          <button class="nav-item" data-route="library" type="button">
+            <span aria-hidden="true">▤</span> 名片庫
+            <span class="count-badge" id="libraryCount">0</span>
+          </button>
+          <button class="nav-item" data-route="settings" type="button">
+            <span aria-hidden="true">⚙</span> 設定
+          </button>
+        </nav>
+        <div class="connection-pill" id="connectionPill">
+          <span class="status-dot"></span>
+          <span id="connectionText">尚未設定 API</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="view active" id="scannerView" data-view="scanner">
+          <div class="scanner-layout">
+            <div class="capture-column">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">CAPTURE</p>
+                  <h1>把名片放進取景框</h1>
+                  <p>保持平整、光線充足，CardLens 會幫你完成剩下的事。</p>
+                </div>
+                <div class="mode-switch" role="group" aria-label="拍攝模式">
+                  <button class="active" data-mode="auto" type="button">自動模式</button>
+                  <button data-mode="manual" type="button">手動多張</button>
+                </div>
+              </div>
+
+              <div class="camera-card">
+                <div class="camera-stage" id="cameraStage">
+                  <video id="cameraVideo" muted playsinline></video>
+                  <canvas id="overlayCanvas" aria-hidden="true"></canvas>
+                  <div class="camera-empty" id="cameraEmpty">
+                    <span class="empty-icon" aria-hidden="true">⌗</span>
+                    <strong>鏡頭尚未開啟</strong>
+                    <p>允許鏡頭權限，或直接匯入名片照片。</p>
+                  </div>
+                  <div class="scan-line" id="scanLine" aria-hidden="true"></div>
+                  <div class="camera-status" id="cameraStatus">
+                    <span class="status-dot"></span>
+                    <span>等待鏡頭</span>
+                  </div>
+                  <div class="camera-tip" id="cameraTip">將名片對齊框線</div>
+                </div>
+
+                <div class="camera-toolbar">
+                  <div class="toolbar-group">
+                    <button class="button secondary" id="startCameraButton" type="button">
+                      開啟鏡頭
+                    </button>
+                    <button class="icon-button" id="switchCameraButton" type="button" title="切換鏡頭" aria-label="切換鏡頭" disabled>
+                      ↻
+                    </button>
+                  </div>
+                  <button class="shutter-button" id="captureButton" type="button" aria-label="拍攝名片" disabled>
+                    <span></span>
+                  </button>
+                  <label class="button secondary file-button">
+                    匯入照片
+                    <input id="imageInput" type="file" accept="image/*" multiple>
+                  </label>
+                </div>
+              </div>
+
+              <div class="capture-note" id="modeHint">
+                <span aria-hidden="true">✦</span>
+                <p><strong>自動模式已啟用</strong> 偵測到完整名片後會快速選取較佳畫面並自動裁切；拍攝後請移開名片再換下一張。</p>
+              </div>
+            </div>
+
+            <aside class="queue-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">PROCESSING QUEUE</p>
+                  <h2>處理佇列</h2>
+                </div>
+                <button class="text-button danger-text" id="clearQueueButton" type="button">清空</button>
+              </div>
+              <div class="queue-summary">
+                <span><strong id="queueTotal">0</strong> 張照片</span>
+                <span id="queueProgressText">尚無待處理項目</span>
+              </div>
+              <div class="queue-list" id="queueList">
+                <div class="empty-state compact">
+                  <span aria-hidden="true">▧</span>
+                  <strong>等待第一張名片</strong>
+                  <p>拍攝或匯入後會顯示在這裡。</p>
+                </div>
+              </div>
+              <div class="queue-actions">
+                <label class="select-all">
+                  <input id="selectAllQueue" type="checkbox">
+                  <span>全選</span>
+                </label>
+                <button class="button primary grow" id="recognizeSelectedButton" type="button" disabled>
+                  辨識所選名片
+                </button>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="libraryView" data-view="library">
+          <div class="library-header">
+            <div>
+              <p class="eyebrow">LOCAL CONTACTS</p>
+              <h1>你的名片庫</h1>
+              <p>所有照片與資料都只保存在這台裝置。</p>
+            </div>
+            <button class="button primary" id="exportButton" type="button">匯出 Excel</button>
+          </div>
+          <div class="library-tools">
+            <label class="search-box">
+              <span aria-hidden="true">⌕</span>
+              <input id="librarySearch" type="search" placeholder="搜尋姓名、公司、Email…">
+            </label>
+            <select id="modeFilter" aria-label="依模式篩選">
+              <option value="all">所有模式</option>
+              <option value="auto">自動模式</option>
+              <option value="manual">手動模式</option>
+            </select>
+            <select id="sortOrder" aria-label="排序">
+              <option value="newest">最新優先</option>
+              <option value="oldest">最舊優先</option>
+              <option value="name">姓名排序</option>
+            </select>
+          </div>
+          <div class="library-grid" id="libraryGrid"></div>
+          <div class="empty-state library-empty" id="libraryEmpty">
+            <span aria-hidden="true">▤</span>
+            <strong>名片庫還是空的</strong>
+            <p>完成第一張名片辨識後，資料會安全地保存在這裡。</p>
+            <button class="button primary" data-route-link="scanner" type="button">開始掃描</button>
+          </div>
+        </section>
+
+        <section class="view" id="settingsView" data-view="settings">
+          <div class="settings-wrap">
+            <div class="settings-intro">
+              <p class="eyebrow">CONNECTION</p>
+              <h1>連接你的 AI 模型</h1>
+              <p>CardLens 使用 OpenAI 相容的 Vision API。設定只會保存在目前瀏覽器。</p>
+              <div class="privacy-card">
+                <span aria-hidden="true">⌾</span>
+                <div>
+                  <strong>關於 API Key</strong>
+                  <p>純前端應用無法完全隱藏金鑰。請使用可撤銷、有限額的專用金鑰，勿在共用裝置儲存。</p>
+                </div>
+              </div>
+            </div>
+
+            <form class="settings-card" id="settingsForm">
+              <div class="form-heading">
+                <div>
+                  <h2>API 設定</h2>
+                  <p>支援 OpenAI Chat Completions 格式</p>
+                </div>
+                <span class="secure-label">僅儲存於本機</span>
+              </div>
+              <label class="field">
+                <span>API Base URL</span>
+                <input id="apiBaseUrl" name="apiBaseUrl" type="url" required placeholder="https://example.com/v1">
+              </label>
+              <label class="field">
+                <span>Model</span>
+                <input id="modelName" name="modelName" type="text" required placeholder="vision-model">
+              </label>
+              <div class="field">
+                <label for="apiKey">API Key</label>
+                <span class="password-wrap">
+                  <input id="apiKey" name="apiKey" type="password" autocomplete="off" required placeholder="sk-…">
+                  <button id="toggleApiKey" type="button" aria-label="顯示 API Key">顯示</button>
+                </span>
+              </div>
+              <div class="settings-actions">
+                <button class="button secondary" id="testConnectionButton" type="button">測試連線</button>
+                <button class="button primary" type="submit">儲存設定</button>
+              </div>
+              <div class="test-result" id="testResult" role="status"></div>
+            </form>
+
+            <section class="danger-zone">
+              <div>
+                <h2>資料管理</h2>
+                <p>永久刪除目前瀏覽器內的所有名片照片、辨識資料與佇列。</p>
+              </div>
+              <button class="button danger" id="deleteAllDataButton" type="button">刪除所有資料</button>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="detail-dialog" id="detailDialog">
+      <button class="dialog-close" id="closeDetailButton" type="button" aria-label="關閉">×</button>
+      <div id="detailContent"></div>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirmDialog">
+      <div>
+        <span class="confirm-icon" aria-hidden="true">!</span>
+        <h2 id="confirmTitle">確認操作</h2>
+        <p id="confirmMessage"></p>
+        <div class="confirm-actions">
+          <button class="button secondary" id="confirmCancel" type="button">取消</button>
+          <button class="button danger" id="confirmAccept" type="button">確認刪除</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+    <canvas id="captureCanvas" hidden></canvas>
+
+    <script src="vendor/xlsx.full.min.js"></script>
+    <script src="app.js?v=20260729-4"></script>
+  </body>
+</html>

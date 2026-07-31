@@ -1,6 +1,6 @@
 # CardLens
 
-CardLens 是一個純前端單頁應用（Single-page Application, SPA），可在瀏覽器中拍攝或匯入名片、偵測邊界、呼叫 OpenAI-compatible Vision API 擷取聯絡資料，並將照片與辨識結果保存於目前裝置。
+CardLens 是一個用來快速演示 API Endpoint 串接的純前端單頁應用（Single-page Application, SPA）。直接開啟 `index.html`，即可設定 OpenAI-compatible API、拍攝或匯入名片，並展示從影像辨識到結構化聯絡資料的完整流程。
 
 ## 主要功能
 
@@ -13,20 +13,21 @@ CardLens 是一個純前端單頁應用（Single-page Application, SPA），可�
 
 ## 快速開始
 
-建議以 localhost 靜態伺服器執行，避免 `file://` 的相機與模組載入限制：
+不需安裝套件、不需 build，也不需啟動 backend。
+
+macOS：
 
 ```bash
-cd /Users/cslin/app-dev/CardDemo
-python3 -m http.server 8000
+open ./index.html
 ```
 
-接著使用最新版 Chrome 或 Edge 開啟：
+Windows：
 
-```text
-http://localhost:8000/
+```bat
+start .\index.html
 ```
 
-也可以直接開啟 `index.html`；若瀏覽器拒絕相機權限，仍可使用「匯入照片」。
+請在專案目錄執行指令。若瀏覽器對 `file://` 頁面限制相機權限，仍可使用「匯入照片」演示 API 辨識流程。
 
 ## API 設定
 
@@ -94,6 +95,19 @@ node --check app.js
 ```
 
 相機、Canvas、IndexedDB、API CORS 與不同裝置鏡頭仍需在真實瀏覽器中人工驗證。
+
+## 後續開發擴充
+
+常見擴充方向：
+
+- 新增辨識欄位：同步調整 `CONTACT_FIELDS`、辨識 prompt、名片詳細資料與 Excel 欄位。
+- 更換 API 規格：從 `testConnection()`、`recognizeCard()` 與 `callChatCompletions()` 調整 endpoint、request 與 response parsing。
+- 新增匯出格式：以 `state.cards` 與 `normalizeContact()` 為資料來源，加入 CSV、vCard 或 CRM connector。
+- 強化多卡辨識：修改 `detectMultipleCardsWithScanic()`，或替換為可一次回傳多個 quadrilateral 的引擎。
+- 調整本機資料結構：變更 IndexedDB schema 時必須提高 `DB_VERSION`，並在 `onupgradeneeded` 加入 migration。
+- 正式部署：將長效 API Key 改為短效 token，或透過受控 backend / proxy 呼叫 API。
+
+完整的擴充位置、修改順序與驗證重點請參考 `Handoff.md`。
 
 ## 已知限制
 

@@ -1,8 +1,8 @@
 # CardLens 開發交接文件
 
 > 更新日期：2026-07-30  
-> 專案位置：`/Users/cslin/app-dev/CardDemo`  
 > 應用型態：純前端單頁應用（Single-page Application, SPA）
+> 主要目的：直接開啟 `index.html`，快速演示 API Endpoint 與名片 Vision 辨識流程
 
 ## 1. 目前狀態
 
@@ -285,29 +285,103 @@ Request 使用 OpenAI-compatible multimodal `messages`，圖片以 JPEG Data URL
 - 沒有聯絡人去重、合併、CSV、vCard 或 CRM integration。
 - Cache busting 仍需手動更新 query string。
 
-## 10. 建議後續工作
+## 10. 後續開發擴充指引
 
-1. 建立 localhost 開發指令、最小 browser smoke test 與測試圖片集。
-2. 將相機、偵測、裁切、storage、API 與 UI rendering 拆成模組。
-3. 將影像處理移至 Web Worker / OffscreenCanvas。
-4. 讓 vision engine 正式回傳多個 quadrilateral，取代九區啟發式掃描。
-5. 加入拍攝後確認與手動調整四角的介面。
-6. 同次多卡拍攝只保存一份原圖，以關聯 record 避免重複 Blob。
-7. 加入 settings 清除功能與安全部署策略。
+### 新增聯絡資料欄位
+
+例如新增 `website` 或 `department`：
+
+1. 在 `CONTACT_FIELDS` 加入欄位名稱。
+2. 更新 `recognizeCard()` 的 prompt 與固定 JSON 欄位說明。
+3. 確認 `normalizeContact()` 能輸出新欄位。
+4. 更新 `showCardDetail()` 的欄位清單。
+5. 視需求更新 `renderLibrary()` 的搜尋或摘要內容。
+6. 在 `exportExcel()` 加入欄位與 column width。
+7. 使用缺值、單值與多值回應各測試一次。
+
+既有 IndexedDB record 不需立即 migration；`normalizeContact()` 會將不存在的欄位轉為空字串。
+
+### 更換或擴充 API Provider
+
+目前實作假設 OpenAI-compatible `/models` 與 `/chat/completions`：
+
+1. 在 `testConnection()` 修改健康檢查 endpoint 與驗證方式。
+2. 在 `recognizeCard()` 建立 provider 所需的 request body。
+3. 在 `callChatCompletions()` 調整 URL、headers、timeout 與認證方式。
+4. 在 `extractTextContent()` / `parseJsonResponse()` 處理回應格式。
+5. 將 provider-specific 邏輯封裝為 adapter，避免條件判斷散落於 UI flow。
+
+若同時支援多個 provider，建議在設定資料加入 `provider`，並以明確 adapter interface 實作：
+
+```js
+{
+  testConnection(settings),
+  recognize(settings, imageDataUrl),
+}
+```
+
+不要將真實 Key 或私有 Endpoint 寫入 `DEFAULT_SETTINGS`。
+
+### 新增頁面或功能區
+
+1. 在 `index.html` 新增具有 `data-view` 的 `.view`。
+2. 新增對應的 `.nav-item` 與 `data-route`。
+3. 在 `els` mapping 註冊必要 DOM elements。
+4. 在 `bindEvents()` 綁定事件。
+5. 將 route 名稱加入 `route()` 的 allowlist。
+6. 在 `styles.css` 補齊 desktop、tablet 與 mobile layout。
+
+若新增較大型功能，應從 `app.js` 拆成獨立 module，而不是繼續擴大單一 IIFE。
+
+### 變更 IndexedDB schema
+
+1. 提高 `DB_VERSION`。
+2. 在 `openDatabase().onupgradeneeded` 依舊版 version 執行 migration。
+3. 保留舊 record 缺少新欄位時的相容處理。
+4. 測試全新資料庫與既有資料庫升級兩條路徑。
+5. 不要只修改 record shape 而忽略 index、刪除語意與匯出流程。
+
+### 強化偵測與裁切
+
+- 調整門檻：修改 `AUTO_DETECTION` 與 Scanic scanner options。
+- 支援正式多卡輸出：以可回傳多個 quadrilateral 的 detector 取代九區掃描。
+- 加入人工校正：拍攝後提供新增框、刪除框與拖曳 corners 的確認畫面。
+- 改善效能：將偵測與 perspective transform 移至 Web Worker / OffscreenCanvas。
+- 降低容量：同一個 `captureGroupId` 只保存一份原圖，子 record 保存裁切圖與參照。
+
+每次調整應使用固定測試圖片集，至少涵蓋正放、旋轉、透視、模糊、兩張並排、四張矩陣、重疊與深淺背景。
+
+### 新增匯出或整合
+
+以 `state.cards` 與 `normalizeContact()` 作為統一資料來源：
+
+- CSV：新增 UTF-8 BOM 與欄位 escaping。
+- vCard：處理多電話、Email、公司與地址 mapping。
+- CRM：先加入人工確認與重複聯絡人處理，再進行同步。
+- 批次同步：為 record 增加同步狀態、遠端 ID、錯誤與重試資訊。
+
+### 建議的開發優先順序
+
+1. 建立最小 browser smoke test 與測試圖片集。
+2. 將 storage、API adapter、camera、detection 與 rendering 拆成模組。
+3. 補上 API 設定清除功能與安全部署策略。
+4. 正式化多卡 detector 與人工裁切確認。
+5. 加入 CSV、vCard、CRM 或其他產品整合。
 
 ## 11. 本機執行與驗證
 
-建議：
+此專案以直接開啟 `index.html` 為主要演示方式，不需要啟動 server。
+
+macOS：
 
 ```bash
-cd /Users/cslin/app-dev/CardDemo
-python3 -m http.server 8000
+open ./index.html
 ```
 
-開啟：
+Windows：
 
-```text
-http://localhost:8000/
+```bat
+start .\index.html
 ```
 
 JavaScript 語法檢查：
